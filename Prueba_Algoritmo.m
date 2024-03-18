@@ -1,24 +1,13 @@
-qb = [1 -2 3 -4 5 pi/2]'*-0.1;
-escala = 10;
-d_1 = 0.1625*escala;
-d_4 = 0.1333*escala;
-d_5 = 0.0997*escala;
-d_6 = 0.0996*escala;
+%Matriz de prueba
+tform = [-0.0000, 1.0000,-0.0000,-0.2000
+          1.0000, 0.0000, 0.0000, 0.4000
+          0.0000, 0.0000,-1.0000, 0.4000
+          0.0000, 0.0000, 0.0000, 1.0000];
+q = [0,0,0,0,0,0]';
+%Implementación de algoritmo
+q = InverseKinematicUR5eITESMTampico(tform,q)
 
-a_2 = -0.425*escala;
-a_3 = -0.3922*escala;
-
-k = [0 -pi/2 0 pi/2 -pi/2 0]';
-q = qb + k;
-
-% T00 = mi_HT(0,0,0,0);
-% T01 = T00*mi_HT(q(1),d_1,0,pi/2);
-% T02 = T01*mi_HT(q(2)-pi/2,0,a_2,0);
-% T03 = T02*mi_HT(q(3),0,a_3,0);
-% T04 = T03*mi_HT(q(4)+pi/2,d_4,0,pi/2);
-% T05 = T04*mi_HT(q(5)-pi/2,d_5,0,-pi/2);
-% T06 = T05*mi_HT(q(6),d_6,0,0)
-% %
+%Comprobación
 T00 = mi_HT(0,0,0,0);
 T01 = T00*mi_HT(q(1),d_1,0,pi/2);
 T02 = T01*mi_HT(q(2),0,a_2,0);
@@ -27,24 +16,7 @@ T04 = T03*mi_HT(q(4),d_4,0,pi/2);
 T05 = T04*mi_HT(q(5),d_5,0,-pi/2);
 T06 = T05*mi_HT(q(6),d_6,0,0)
 
-MarcoRef(T00,0)
-MarcoRef(T01,1)
-MarcoRef(T02,2)
-MarcoRef(T03,3)
-MarcoRef(T04,4)
-MarcoRef(T05,5)
-MarcoRef(T06,6)
-
-hold off
-
-%%
-q = InverseKinematicUR5eITESMTampico(T06,q+0.1);
-if isempty(q)
-    q=zeros(6,1);
-end
-qb = q - k
-
-
+%Funciones usadas
 function output = mi_HT(theta,d,a,alpha)
     output = [mi_Rotz(theta),[0 0 0]';[0 0 0],1]*...
         [eye(3),[a 0 d]';[0 0 0],1]*...
