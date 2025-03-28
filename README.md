@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/f4adf22e-0e4f-4b3b-be11-fd24110c53ba)# UR5e
+# UR5e
 
 ## Archivo InverseKinematicUR5eITESMTampico.m
 En el archivo  **InverseKinemticUR5eITESMTampico.m** se encuentra el archivo que resuelve la cinemática inversa basada en la tabla de DH del fabricante, debe observar que los valores de los ángulos no corresponden con la implementación que se tiene en la competencia **Robocup Arm Challenge** siendo necesario un cambio de coordenadas:
