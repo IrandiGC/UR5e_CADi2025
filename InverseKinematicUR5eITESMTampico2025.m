@@ -1,9 +1,16 @@
-function output = InverseKinematicUR5eITESMTampico2025(H_Actual)
+function [Salida,Configuracion_Salida] = InverseKinematicUR5eITESMTampico2025(H_Actual,q,Configuracion_Entrada,R_int,R_ext)
 
-    %% H_Actual      es la transformación requerida,
+    % H_Actual              --->    Es la transformación homogenea requerida,
+    % q                     --->    Es el vector de coordenadas articulares anterior.
+    % Configuracion_Entrada --->    Es el booleano que define mano hacia
+    %                               adentro o hacia afuera.
+    % R_int                 --->    Define el círculo interior de histéresis.
+    % R_ext                 --->    Define el círculo exterior de histéresis.
+
+
     % Este código se probo dentro de un espacio de trabajo definido por un
     % cilindro de
-    % radio en intervalo [0.25,0.75] m
+    % radio en intervalo [0.25,0.91] m
     % angulo en intervalo [-pi,pi] rad
     % altura en intervalo [0,0.4] m 
 
@@ -23,34 +30,26 @@ function output = InverseKinematicUR5eITESMTampico2025(H_Actual)
     numSol = 16;
     theta = zeros(6,numSol);
     P = zeros(3,numSol);
+    altura_codo = zeros(numSol,1);
+    punto_muneca = zeros(3,numSol);
 
     %Aquí se coloca el algoritmo para generar las 16 soluciones, revisar
     %artículo
 
     p05x= H_Actual(1,4)-d_6*H_Actual(1,3);
     p05y= H_Actual(2,4)-d_6*H_Actual(2,3);
+
+    p06x = H_Actual(1,4);
+    p06y = H_Actual(2,4);
+
+    r = norm([p06x,p06y]);
+
     temp = atan2(p05y,p05x)+acos(d_4/(sqrt(p05x^2+p05y^2)))+pi/2;
-    while temp>pi
-        temp = temp-2*pi;
-    end
-
-    while temp<-pi
-        temp = temp+2*pi;
-    end
-
-    theta(1,1:numSol/2)= temp;
+    theta(1,1:numSol/2)= mod(temp + pi, 2*pi) - pi;
 
     temp = atan2(p05y,p05x)-acos(d_4/(sqrt(p05x^2+p05y^2)))+pi/2;
 
-    while temp>pi
-        temp = temp-2*pi;
-    end
-
-    while temp<-pi
-        temp = temp+2*pi;
-    end
-
-    theta(1,numSol/2+1:end)= temp;
+    theta(1,numSol/2+1:end)= mod(temp + pi, 2*pi) - pi;
 
     for i = 1:16
         %Si alguna solución númerica no se puede calcular, se descarta y se coloca NAN 
@@ -75,8 +74,12 @@ function output = InverseKinematicUR5eITESMTampico2025(H_Actual)
             end
             if mod(i,2)==1
                 T23 = mi_HT(theta(3,i),0,a_3,0);
-                theta(2,i) = -atan2(p13(2),-p13(1))+asin(a_3*sin(theta(3,i))/p13m);
-                theta(2,i+1) = -atan2(p13(2),-p13(1))-asin(a_3*sin(theta(3,i))/p13m);
+                
+                temp = -atan2(p13(2),-p13(1))+asin(a_3*sin(theta(3,i))/p13m);                
+                theta(2,i) = mod(temp + pi, 2*pi) - pi;
+                
+                temp = -atan2(p13(2),-p13(1))-asin(a_3*sin(theta(3,i))/p13m);
+                theta(2,i+1) = mod(temp + pi, 2*pi) - pi;
             end
             T12 = mi_HT(theta(2,i),0,a_2,0);
             T34=(T12*T23)\T14;
@@ -88,31 +91,49 @@ function output = InverseKinematicUR5eITESMTampico2025(H_Actual)
     %De todas soluciones, se determina su ubicación final.
     % display(theta)
     for i=1:numSol
-        temp0 = mi_HT(theta(1,i),d_1,0,pi/2)*mi_HT(theta(2,i),0,a_2,0)*...
-        mi_HT(theta(3,i),0,a_3,0)*mi_HT(theta(4,i),d_4,0,pi/2)*...
-        mi_HT(theta(5,i),d_5,0,-pi/2)*mi_HT(theta(6,i),d_6,0,0);
-        P(:,i) = temp0(1:3,4);
+        temp = mi_HT(theta(1,i),d_1,0,pi/2)*mi_HT(theta(2,i),0,a_2,0);
+        altura_codo(i) = temp(3,4);
+        temp = temp*mi_HT(theta(3,i),0,a_3,0)*mi_HT(theta(4,i),d_4,0,pi/2);
+        punto_muneca(:,i) = temp(1:3,4);
+        temp = temp*mi_HT(theta(5,i),d_5,0,-pi/2)*mi_HT(theta(6,i),d_6,0,0);
+
+        P(:,i) = temp(1:3,4);
     end
 
-
-    
     %Se descartan todas las "soluciones" que no son soluciones.
-    temp = sum((P-H_Actual(1:3,4)).^2,1);
-    theta = theta(:,temp < 0.001);
+    condicion = sum((P-H_Actual(1:3,4)).^2,1)< 0.001;
+    theta = theta(:,condicion);
+    altura_codo = altura_codo(condicion);
+    punto_muneca = punto_muneca(:,condicion);
 
-    %Se ajustan valores entre -pi y pi.
+    %Nos quedamos con la posición correcta de la muñeca
+    Configuracion_Salida = Configuracion_Entrada;
 
-    % Se desrcartan algunas configuraciones de brazo hacia arriba
-    theta = theta(:,and(theta(1,:)>-pi,theta(1,:)<pi)); %considerando rotaciones entre pi y -pi del primer motor
-    theta = theta(:,and(theta(2,:)<0,theta(2,:)>-0.9*pi)); %considerando el segundo brazo sin posición hacia atras
-    theta = theta(:,theta(3,:) > 0); %Considerando solo posiciones de codo hacia abajo 
-
-    if size(theta,2) > 2
-        output = theta(:,2);
-    else
-        output = theta(:,end);
+    if and(Configuracion_Entrada == true ,  r>R_ext)
+        Configuracion_Salida = false;
     end
 
+    if and(Configuracion_Entrada == false ,  r<R_int)
+        Configuracion_Salida = true;
+    end
+
+    if Configuracion_Salida == true
+        condicion = max(sum(punto_muneca.^2,1)) - sum(punto_muneca.^2,1) <= 0.0001;
+        theta = theta(:,condicion);
+        altura_codo = altura_codo(condicion);
+    else
+        condicion = min(sum(punto_muneca.^2,1)) - sum(punto_muneca.^2,1) >= -0.0001;
+        theta = theta(:,condicion);
+        altura_codo = altura_codo(condicion);
+    end
+
+    %Nos quedamos con la posición codo arriba
+    condicion = max(altura_codo) - altura_codo <= 0.0001;
+    theta = theta(:,condicion);
+
+    %Nos quedamos con la rotación de q1 mas pequeña
+    condicion = min(abs(q(1)-theta(1,:))) == abs(q(1)-theta(1,:));
+    Salida = theta(:,condicion);
 end
 
 % Funciones usadas en este algoritmo.
@@ -134,4 +155,28 @@ function output = mi_Rotx(theta)
     output = [1 0 0;
               0 cos(theta) -sin(theta);
               0 sin(theta) cos(theta)];
+end
+
+function output = RGrip(AngGrip)
+%Ingresa el angulo de rotación del griper, este siempre apunta con el eje z
+%hacia abajo.
+    output = [cos(AngGrip) -sin(AngGrip) 0;...
+             -sin(AngGrip) -cos(AngGrip) 0;...
+              0    0   -1];
+end
+
+function output = p2arh(p)
+%Recibe un punto en coordenadas cartesianas y lo translada a coordenadas
+%cilíndricas (x,y,z)-->(angulo,radio,altura)
+    output = [atan2(p(2),p(1)) ;
+              norm([p(1),p(2)]); 
+              p(3) ];
+end
+
+function output = arh2p(p)
+%Recibe un punto en coordenadas cilíndricas y lo translada a coordenadas
+%cartesianas (angulo,radio,altura)
+    output = [p(2)*cos(p(1)) ;
+              p(2)*sin(p(1)) ;
+              p(3)];
 end
