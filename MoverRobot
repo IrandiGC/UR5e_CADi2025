@@ -1,0 +1,88 @@
+function RobotConfiguration= MoverRobot(coci,angulo_Gripper,defase_Robot,RobotConfiguration,trajGoal,trajAct,jointSub)
+%%%Manda la posicion del efector, en donde lo queremos, ocupamos darle los
+% coci = coordenadas_cilindricas(r,theta,h)
+
+
+    %Punto 3d que el usuario quiere alcanzar
+    p_real = rah2p(coci);
+
+    %Punto 3d que el robot quiere alcanzar
+    p_robot = mi_Rotz(defase_Robot)*p_real;
+
+    %Angulo necesario del Gripper para mantener una posición radial + el
+    %ajuste del usuario
+    temp = p2rah(p_robot);
+    nuevo_Angulo_Gripper = temp(2) + angulo_Gripper + defase_Robot;
+
+    %Se construye la matriz de transformación homogénea
+    H_Actual = [RGrip(nuevo_Angulo_Gripper),p_robot;0 0 0 1];
+
+    RobotConfiguration = InverseKinematicUR5eITESMTampico2025(H_Actual,RobotConfiguration);
+    
+    UR5econfig = [RobotConfiguration(3).JointPosition RobotConfiguration(2).JointPosition...
+    RobotConfiguration(1).JointPosition RobotConfiguration(4).JointPosition...
+    RobotConfiguration(5).JointPosition RobotConfiguration(6).JointPosition]; %Acomoda la informacion para que ROS lo entienda
+    
+    trajGoal = packTrajGoal(UR5econfig,trajGoal); %Envia los datos por medio de ROS
+    sendGoal(trajAct,trajGoal);
+
+    %jointStateMsg = receive(jointSub,3) 
+
+    q = zeros(6,1);
+
+    while true
+        jointStateMsg = receive(jointSub,3);
+        q(1) = RobotConfiguration(1).JointPosition - jointStateMsg.Position(4);
+        q(2) = RobotConfiguration(2).JointPosition - jointStateMsg.Position(3);
+        q(3) = RobotConfiguration(3).JointPosition - jointStateMsg.Position(1);
+        q(4) = RobotConfiguration(4).JointPosition - jointStateMsg.Position(5);
+        q(5) = RobotConfiguration(5).JointPosition - jointStateMsg.Position(6);
+        q(6) = RobotConfiguration(6).JointPosition - jointStateMsg.Position(7);
+        if norm(q) < 0.01
+            break
+        end
+    end
+
+end
+
+function output = RGrip(AngGrip)
+%Ingresa el angulo de rotación del griper, este siempre apunta con el eje z
+%hacia abajo.
+    output = [cos(AngGrip) sin(AngGrip) 0;...
+             sin(AngGrip) -cos(AngGrip) 0;...
+              0    0   -1];
+end
+
+function output = p2rah(p)
+%Recibe un punto en coordenadas cartesianas y lo translada a coordenadas
+%cilíndricas (x,y,z)-->(radio,angulo,altura)
+    output = [norm([p(1),p(2)]); 
+              atan2(p(2),p(1)) ;      
+              p(3) ];
+end
+
+function output = rah2p(p)
+%Recibe un punto en coordenadas cilíndricas y lo translada a coordenadas
+% (radio,angulo,altura) --> (x,y,z)
+    output = [p(1)*cos(p(2)) ;
+              p(1)*sin(p(2)) ;
+              p(3)];
+end
+
+function output = mi_Rotz(theta)
+%Ingreso un ángulo en RADIANES y devuelve la respectiva matriz de rotación en z.
+    output = [cos(theta) -sin(theta) 0;
+              sin(theta) cos(theta) 0;
+              0 0 1];
+end
+
+%-----Funcionamiento-----
+%Esta funcion nos llevara a cualquier punto al que queramos llegar solo mandando las coordenadas para x, y, z (Este lo podemos utilizar para todo)
+%Esta es una funcion a la cual, nos llevara a la primera botella, a ella le estamos mandando una Robot config, el trajGoal, trajAct y el peso de los motores.
+%La misma funcion ya cuenta con las coordenadas del bote de basura, asi que hace la tranformada homogenea, para el calulo de los movimientos que debe de hacer.
+%Al final termina mandando los datos por medio de la UR5econfig
+%NOTA: Podemos cambiar y agregar los valores en los que recibe y por ende, cambiar la orientacion del gripper
+
+%%%
+%gorienZ,gorienY,gorienX
+%gripperRotation = [gorienZ gorienY gorienX];

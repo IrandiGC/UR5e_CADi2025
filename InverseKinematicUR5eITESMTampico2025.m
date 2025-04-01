@@ -1,4 +1,4 @@
-function [Salida,Configuracion_Salida] = InverseKinematicUR5eITESMTampico2025(H_Actual,q,Configuracion_Entrada,R_int,R_ext)
+function RobotConfiguration = InverseKinematicUR5eITESMTampico2025(H_Actual,RobotConfiguration)
 
     % H_Actual              --->    Es la transformación homogenea requerida,
     % q                     --->    Es el vector de coordenadas articulares anterior.
@@ -14,17 +14,17 @@ function [Salida,Configuracion_Salida] = InverseKinematicUR5eITESMTampico2025(H_
     % angulo en intervalo [-pi,pi] rad
     % altura en intervalo [0,0.4] m 
 
+    % Offset inicial de los motores
+    k = [-pi/2 pi/2 0 0 pi/2 0]';
+  
+    %Unidades en m   
+    d_1 = 0.1625;
+    d_4 = 0.1333;
+    d_5 = 0.0997;
+    d_6 = 0.0996 + 0.1628;
 
-    %Unidades en m    
-    escala = 1;
-    
-    d_1 = 0.1625*escala;
-    d_4 = 0.1333*escala;
-    d_5 = 0.0997*escala;
-    d_6 = 0.0996*escala;
-
-    a_2 = -0.425*escala;
-    a_3 = -0.3922*escala;
+    a_2 = -0.425;
+    a_3 = -0.3922;
 
     %Se prepara una matriz para almacenar las posibles 16 soluciones.
     numSol = 16;
@@ -38,11 +38,6 @@ function [Salida,Configuracion_Salida] = InverseKinematicUR5eITESMTampico2025(H_
 
     p05x= H_Actual(1,4)-d_6*H_Actual(1,3);
     p05y= H_Actual(2,4)-d_6*H_Actual(2,3);
-
-    p06x = H_Actual(1,4);
-    p06y = H_Actual(2,4);
-
-    r = norm([p06x,p06y]);
 
     temp = atan2(p05y,p05x)+acos(d_4/(sqrt(p05x^2+p05y^2)))+pi/2;
     theta(1,1:numSol/2)= mod(temp + pi, 2*pi) - pi;
@@ -106,34 +101,46 @@ function [Salida,Configuracion_Salida] = InverseKinematicUR5eITESMTampico2025(H_
     altura_codo = altura_codo(condicion);
     punto_muneca = punto_muneca(:,condicion);
 
-    %Nos quedamos con la posición correcta de la muñeca
-    Configuracion_Salida = Configuracion_Entrada;
-
-    if and(Configuracion_Entrada == true ,  r>R_ext)
-        Configuracion_Salida = false;
-    end
-
-    if and(Configuracion_Entrada == false ,  r<R_int)
-        Configuracion_Salida = true;
-    end
-
-    if Configuracion_Salida == true
-        condicion = max(sum(punto_muneca.^2,1)) - sum(punto_muneca.^2,1) <= 0.0001;
-        theta = theta(:,condicion);
-        altura_codo = altura_codo(condicion);
-    else
-        condicion = min(sum(punto_muneca.^2,1)) - sum(punto_muneca.^2,1) >= -0.0001;
-        theta = theta(:,condicion);
-        altura_codo = altura_codo(condicion);
-    end
+    condicion = min(sum(punto_muneca.^2,1)) - sum(punto_muneca.^2,1) >= -0.0001;
+    theta = theta(:,condicion);
+    altura_codo = altura_codo(condicion);
 
     %Nos quedamos con la posición codo arriba
     condicion = max(altura_codo) - altura_codo <= 0.0001;
     theta = theta(:,condicion);
 
+     q_Anterior = [RobotConfiguration(1).JointPosition,RobotConfiguration(2).JointPosition,...
+                  RobotConfiguration(3).JointPosition,RobotConfiguration(4).JointPosition,...
+                  RobotConfiguration(5).JointPosition,RobotConfiguration(6).JointPosition]';
+
     %Nos quedamos con la rotación de q1 mas pequeña
-    condicion = min(abs(q(1)-theta(1,:))) == abs(q(1)-theta(1,:));
-    Salida = theta(:,condicion);
+    
+    condicion = min([1 5 10 10 1 1]*(theta-q_Anterior)) == [1 5 10 10 1 1]*(theta-q_Anterior);
+    q = theta(:,condicion);
+
+    if isempty(q)
+        sprintf("Salida vacia, se ha seleccionado de forma arbitraria")
+        RobotConfiguration(1).JointPosition=0;
+        RobotConfiguration(2).JointPosition=0; 
+        RobotConfiguration(3).JointPosition=0; 
+        RobotConfiguration(4).JointPosition=0; 
+        RobotConfiguration(5).JointPosition=0; 
+        RobotConfiguration(6).JointPosition=0; 
+    else
+        sprintf("Se ha encontrado una salida, se ha seleccionado y ajustado sumando la constante de simulación")
+        temp = mod(q(1)+k(1) + pi, 2*pi) - pi;
+        if temp < 0
+            RobotConfiguration(1).JointPosition= temp + 2*pi;
+        else
+            RobotConfiguration(1).JointPosition= temp;
+        end
+
+
+        for cont = 2:6
+            RobotConfiguration(cont).JointPosition= mod(q(cont)+k(cont) + pi, 2*pi) - pi;
+        end
+    end
+    
 end
 
 % Funciones usadas en este algoritmo.
@@ -155,28 +162,4 @@ function output = mi_Rotx(theta)
     output = [1 0 0;
               0 cos(theta) -sin(theta);
               0 sin(theta) cos(theta)];
-end
-
-function output = RGrip(AngGrip)
-%Ingresa el angulo de rotación del griper, este siempre apunta con el eje z
-%hacia abajo.
-    output = [cos(AngGrip) -sin(AngGrip) 0;...
-             -sin(AngGrip) -cos(AngGrip) 0;...
-              0    0   -1];
-end
-
-function output = p2arh(p)
-%Recibe un punto en coordenadas cartesianas y lo translada a coordenadas
-%cilíndricas (x,y,z)-->(angulo,radio,altura)
-    output = [atan2(p(2),p(1)) ;
-              norm([p(1),p(2)]); 
-              p(3) ];
-end
-
-function output = arh2p(p)
-%Recibe un punto en coordenadas cilíndricas y lo translada a coordenadas
-%cartesianas (angulo,radio,altura)
-    output = [p(2)*cos(p(1)) ;
-              p(2)*sin(p(1)) ;
-              p(3)];
 end
