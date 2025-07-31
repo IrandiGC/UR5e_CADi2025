@@ -7,13 +7,3 @@ $$ \begin{bmatrix} \bar{q}_1 \\\ \bar{q}_2 \\\ \bar{q}_3 \\\ \bar{q}_4 \\\ \bar{
 <p align="center">
   <img width="230" height="300" src="https://github.com/user-attachments/assets/29348521-0378-495a-a00a-55a7715727b9">
 </p>
-
-## Archivo Prueba_Algoritmo.m
-Revise el archivo **Prueba_Algortimo.m** para ver un ejemplo de la implementación de este cambio de coordenadas.
-
-## Archivo UR_template_cartesian_modificado.mlx
-La simulación de una trayectoria se encuentra en el archivo **R_template_cartesian_modificado.mlx**, revisarlo e intentar programar diferentes trayectorias. !Reportar detalles en las trayectorias para su discusión!
-
-## Revisión de detalles de convocatoria
-Revise https://drive.google.com/file/d/1w9tBy3DKmZBKEfOqOFUXcT8hcQig6sNS/view 
-![image](https://github.com/IrandiGC/UR5e/assets/149118292/1dc46e4f-faaf-4a7c-88ed-36a9610a8f1d)
