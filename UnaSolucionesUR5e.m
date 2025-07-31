@@ -5,21 +5,16 @@ function Salida = UnaSolucionesUR5e(H_Actual,PosicionArticularAnterior)
     condicion = min(sum(CinematicaInversa.Muneca.^2,1)) - sum(CinematicaInversa.Muneca.^2,1) >= -0.0001;
     CinematicaInversa.Angulos = CinematicaInversa.Angulos(:,condicion);
     CinematicaInversa.Codo = CinematicaInversa.Codo(condicion);
-    CinematicaInversa.Muneca = CinematicaInversa.Muneca(:,condicion);
 
     %Condición de codo hacia arriba
     condicion = max(CinematicaInversa.Codo) - CinematicaInversa.Codo <= 0.0001;
     CinematicaInversa.Angulos = CinematicaInversa.Angulos(:,condicion);
-    CinematicaInversa.Codo = CinematicaInversa.Codo(condicion);
-    CinematicaInversa.Muneca = CinematicaInversa.Muneca(:,condicion);
 
     %Condición de proximidad
-    w =[1 5 10 10 1 1];
-    condicion = min(w*(CinematicaInversa.Angulos-PosicionArticularAnterior)) ==w*(CinematicaInversa.Angulos-PosicionArticularAnterior);
+    w =[1 1 1 1 1 1];
+    [~,condicion] = min((w*(CinematicaInversa.Angulos-PosicionArticularAnterior).^2));
     CinematicaInversa.Angulos = CinematicaInversa.Angulos(:,condicion);
-    CinematicaInversa.Codo = CinematicaInversa.Codo(condicion);
-    CinematicaInversa.Muneca = CinematicaInversa.Muneca(:,condicion);
     
     %Salida
-    Salida = CinematicaInversa;
+    Salida = CinematicaInversa.Angulos;
 end

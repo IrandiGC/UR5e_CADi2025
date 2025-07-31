@@ -27,7 +27,7 @@ function gripGoal=packGripGoal(position,gripGoal)
     trajPts.Positions = position;
     trajPts.Velocities = 0;
     trajPts.Accelerations = 0;
-    trajPts.Effort = 0;
+    trajPts.Effort = 0.1;
     
     gripGoal.Trajectory.Points = trajPts;
 end

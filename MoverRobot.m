@@ -8,15 +8,16 @@ function MoverRobot(q,trajAct,trajGoal,jointSub)
     
     %% Esta parte del código espera hasta que la norma del error articular sea 0.1
     desviacionArticular = zeros(6,1);
+    
     while true
-        jointStateMsg = receive(jointSub,3);
-        desviacionArticular(1) = q(1) - jointStateMsg.Position(4);
-        desviacionArticular(2) = q(2) - jointStateMsg.Position(3);
-        desviacionArticular(3) = q(3) - jointStateMsg.Position(1);
-        desviacionArticular(4) = q(4) - jointStateMsg.Position(5);
-        desviacionArticular(5) = q(5) - jointStateMsg.Position(6);
-        desviacionArticular(6) = q(6) - jointStateMsg.Position(7);
-        if norm(desviacionArticular) < 0.01
+        ValoresArticulares = LeerValoresArticulares(jointSub);
+        desviacionArticular(1) = mod(q(1) - ValoresArticulares.q1-pi,2*pi)-pi;
+        desviacionArticular(2) = mod(q(2) - ValoresArticulares.q2-pi,2*pi)-pi;
+        desviacionArticular(3) = mod(q(3) - ValoresArticulares.q3-pi,2*pi)-pi;
+        desviacionArticular(4) = mod(q(4) - ValoresArticulares.q4-pi,2*pi)-pi;
+        desviacionArticular(5) = mod(q(5) - ValoresArticulares.q5-pi,2*pi)-pi;
+        desviacionArticular(6) = mod(q(6) - ValoresArticulares.q6-pi,2*pi)-pi;
+        if norm(desviacionArticular) < 0.001
             break
         end
     end
